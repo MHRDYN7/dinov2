@@ -28,7 +28,7 @@ transformations = transforms.Compose([
         )
 ])
 
-pixel_values = transformations(image).unsqeeze(0)
+pixel_values = transformations(image).unsqueeze(0)
 
 output = model(pixel_values)
 
