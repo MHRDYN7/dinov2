@@ -5,13 +5,13 @@ import requests
 from torchvision import transforms 
 model = vit_base()
 
-for name, param in model.named_parameters():
-    print(name, param.shape)
+#for name, param in model.named_parameters():
+#    print(name, param.shape)
 
 state_dict = torch.hub.load_state_dict_from_url(url='https://dl.fbaipublicfiles.com/dinov2/dinov2_vitb14/dinov2_vitb14_pretrain.pth', 
                                                 map_location='cpu')
 
-model.load_state_dictd(state_dict)
+model.load_state_dict(state_dict)
 
 # Load Image
 url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
