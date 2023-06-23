@@ -30,9 +30,15 @@ transformations = transforms.Compose([
 
 pixel_values = transformations(image).unsqueeze(0)
 
-output = model(pixel_values)
+outputs = model.forward_features(pixel_values)
 
-print("Outputs", output)
+for k, v in outputs.items():
+  if isinstance(v, torch.Tensor):
+    print(k, v.shape)
+  else:
+    print(k, v)
+
+#print("The Outputs have a shape", outputs)
 
 
 
