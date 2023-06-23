@@ -3,7 +3,7 @@ import torch
 from PIL import Image
 import requests
 from torchvision import transforms 
-model = vit_base()
+model = vit_base(img_size = 518, patch_size = 14, init_values = 1.0, block_chunks = 0)
 
 #for name, param in model.named_parameters():
 #    print(name, param.shape)
