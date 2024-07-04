@@ -1,7 +1,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 #
 # This source code is licensed under the Apache License, Version 2.0
-# found in the LICENSE file in the root directory of this source tree.
+# found in the LICENSE file in the root directory of this source tree._
 
 # References:
 #   https://github.com/facebookresearch/dino/blob/main/vision_transformer.py
@@ -24,17 +24,17 @@ logger = logging.getLogger("dinov2")
 
 
 def named_apply(fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False) -> nn.Module:
-    if not depth_first and include_root:
+    if not depth_first and include_root:  # ? false
         fn(module=module, name=name)
     for child_name, child_module in module.named_children():
-        child_name = ".".join((name, child_name)) if name else child_name
+        child_name = ".".join((name, child_name)) if name else child_name   # ? name is empty initially, so it's just child_name
         named_apply(fn=fn, module=child_module, name=child_name, depth_first=depth_first, include_root=True)
-    if depth_first and include_root:
+    if depth_first and include_root:      # ? false
         fn(module=module, name=name)
     return module
 
 
-class BlockChunk(nn.ModuleList):
+class BlockChunk(nn.ModuleList):   # ? not used
     def forward(self, x):
         for b in self:
             x = b(x)
@@ -44,8 +44,8 @@ class BlockChunk(nn.ModuleList):
 class DinoVisionTransformer(nn.Module):
     def __init__(
         self,
-        img_size=224,
-        patch_size=16,
+        img_size=224,         # ? 518
+        patch_size=16,        # ? 14
         in_chans=3,
         embed_dim=768,
         depth=12,
@@ -53,18 +53,18 @@ class DinoVisionTransformer(nn.Module):
         mlp_ratio=4.0,
         qkv_bias=True,
         ffn_bias=True,
-        proj_bias=True,
-        drop_path_rate=0.0,
-        drop_path_uniform=False,
-        init_values=None,  # for layerscale: None or 0 => no layerscale
+        proj_bias=True,        # ? Need to check    
+        drop_path_rate=0.0,    # ? kept at 0.0 but still need to check
+        drop_path_uniform=False,  # ? kept False
+        init_values=None,  # for layerscale: None or 0 => no layerscale   # ? init_values = 1.0
         embed_layer=PatchEmbed,
         act_layer=nn.GELU,
         block_fn=Block,
         ffn_layer="mlp",
-        block_chunks=1,
-        num_register_tokens=0,
-        interpolate_antialias=False,
-        interpolate_offset=0.1,
+        block_chunks=1,         # ? block_chunks = 0
+        num_register_tokens=0,       # ! new
+        interpolate_antialias=False, 
+        interpolate_offset=0.1,       
     ):
         """
         Args:
@@ -95,7 +95,7 @@ class DinoVisionTransformer(nn.Module):
         norm_layer = partial(nn.LayerNorm, eps=1e-6)
 
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
-        self.num_tokens = 1
+        self.num_tokens = 1   # ? 1 cls token
         self.n_blocks = depth
         self.num_heads = num_heads
         self.patch_size = patch_size
@@ -103,25 +103,25 @@ class DinoVisionTransformer(nn.Module):
         self.interpolate_antialias = interpolate_antialias
         self.interpolate_offset = interpolate_offset
 
-        self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
-        num_patches = self.patch_embed.num_patches
+        self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim) # ? Step1 PatchEmbed   img_size is 518, patch_size is 14, in_chans is 3, embed_dim is 768  (B, 256, 768)
+        num_patches = self.patch_embed.num_patches  # ? num_patches is 1369
 
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))  # ? len 768            # ? 1, 1, 768
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))   # ? 1, 1370, 768
         assert num_register_tokens >= 0
         self.register_tokens = (
             nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim)) if num_register_tokens else None
         )
 
-        if drop_path_uniform is True:
-            dpr = [drop_path_rate] * depth
+        if drop_path_uniform is True:       # ? drop_path_uniform is False
+            dpr = [drop_path_rate] * depth        
         else:
-            dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+            dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule   # ? dpr is a list of 0.0
 
-        if ffn_layer == "mlp":
+        if ffn_layer == "mlp":                                       # ? for s b l sizes
             logger.info("using MLP layer as FFN")
             ffn_layer = Mlp
-        elif ffn_layer == "swiglufused" or ffn_layer == "swiglu":
+        elif ffn_layer == "swiglufused" or ffn_layer == "swiglu":    # ? only for giant
             logger.info("using SwiGLU layer as FFN")
             ffn_layer = SwiGLUFFNFused
         elif ffn_layer == "identity":
@@ -138,19 +138,19 @@ class DinoVisionTransformer(nn.Module):
             block_fn(
                 dim=embed_dim,
                 num_heads=num_heads,
-                mlp_ratio=mlp_ratio,
+                mlp_ratio=mlp_ratio,     # ? mlp_ratio is 4.0
                 qkv_bias=qkv_bias,
                 proj_bias=proj_bias,
                 ffn_bias=ffn_bias,
-                drop_path=dpr[i],
+                drop_path=dpr[i],        # ? all 0.0 everytime so all blocks are identical
                 norm_layer=norm_layer,
                 act_layer=act_layer,
                 ffn_layer=ffn_layer,
-                init_values=init_values,
+                init_values=init_values, # ? init_values is 1.0
             )
             for i in range(depth)
         ]
-        if block_chunks > 0:
+        if block_chunks > 0:   # ? False
             self.chunked_blocks = True
             chunked_blocks = []
             chunksize = depth // block_chunks
@@ -159,65 +159,66 @@ class DinoVisionTransformer(nn.Module):
                 chunked_blocks.append([nn.Identity()] * i + blocks_list[i : i + chunksize])
             self.blocks = nn.ModuleList([BlockChunk(p) for p in chunked_blocks])
         else:
-            self.chunked_blocks = False
-            self.blocks = nn.ModuleList(blocks_list)
+            self.chunked_blocks = False               # ? yes this remains false
+            self.blocks = nn.ModuleList(blocks_list)  # ? blocks is a list of 12 blocks
 
-        self.norm = norm_layer(embed_dim)
+        self.norm = norm_layer(embed_dim)   # ? only the embeds are normalised
         self.head = nn.Identity()
 
-        self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
+        self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))  # ? mask token is 1, 768
 
         self.init_weights()
 
     def init_weights(self):
-        trunc_normal_(self.pos_embed, std=0.02)
-        nn.init.normal_(self.cls_token, std=1e-6)
+        trunc_normal_(self.pos_embed, std=0.02)     # ! to be noted
+        nn.init.normal_(self.cls_token, std=1e-6)   # ! to be noted
         if self.register_tokens is not None:
             nn.init.normal_(self.register_tokens, std=1e-6)
         named_apply(init_weights_vit_timm, self)
 
-    def interpolate_pos_encoding(self, x, w, h):
+    def interpolate_pos_encoding(self, x, w, h):        # ? x is b hw+1 c  so x is (B, 257, 768)
         previous_dtype = x.dtype
-        npatch = x.shape[1] - 1
-        N = self.pos_embed.shape[1] - 1
-        if npatch == N and w == h:
+        npatch = x.shape[1] - 1             # ? npatch is 256
+        N = self.pos_embed.shape[1] - 1     # ? N is 1369 as the vision transformer is initialised with img_size = 518
+        if npatch == N and w == h:          # ? this is not true though w == h
             return self.pos_embed
-        pos_embed = self.pos_embed.float()
-        class_pos_embed = pos_embed[:, 0]
-        patch_pos_embed = pos_embed[:, 1:]
-        dim = x.shape[-1]
-        w0 = w // self.patch_size
+        pos_embed = self.pos_embed.float() # ? pos_embed is 1, 1370, 768
+        class_pos_embed = pos_embed[:, 0]  # ? class_pos_embed is 1, 1, 768
+        patch_pos_embed = pos_embed[:, 1:] # ? patch_pos_embed is 1, 1369, 768
+        dim = x.shape[-1]     # ? x.shape[-1] is the number of channels so dim is 768
+        w0 = w // self.patch_size   # ? w and h are after transformation so they are 224 and w0 = 224/14 = 16 
         h0 = h // self.patch_size
-        M = int(math.sqrt(N))  # Recover the number of patches in each dimension
+        M = int(math.sqrt(N))  # Recover the number of patches in each dimension   # ? M is 37
         assert N == M * M
         kwargs = {}
-        if self.interpolate_offset:
+        if self.interpolate_offset:    # ! this is true as interpolate offset is 0.1
             # Historical kludge: add a small number to avoid floating point error in the interpolation, see https://github.com/facebookresearch/dino/issues/8
             # Note: still needed for backward-compatibility, the underlying operators are using both output size and scale factors
-            sx = float(w0 + self.interpolate_offset) / M
-            sy = float(h0 + self.interpolate_offset) / M
+            sx = float(w0 + self.interpolate_offset) / M    # ? sx is 16.1/37 = 0.435
+            sy = float(h0 + self.interpolate_offset) / M    # ? sy is 16.1/37 = 0.435
             kwargs["scale_factor"] = (sx, sy)
         else:
             # Simply specify an output size instead of a scale factor
             kwargs["size"] = (w0, h0)
         patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, M, M, dim).permute(0, 3, 1, 2),
+            patch_pos_embed.reshape(1, M, M, dim).permute(0, 3, 1, 2),   # ? patch_pos_embed is reshaped (1, 1369, 768) => (1, 37, 37, 768) => (1, 768, 37, 37)    mini-batch x channels x [optional depth] x [optional height] x width
             mode="bicubic",
-            antialias=self.interpolate_antialias,
+            antialias=self.interpolate_antialias,       # ? this is false
             **kwargs,
-        )
-        assert (w0, h0) == patch_pos_embed.shape[-2:]
-        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
+        )                                               # ? patch_pos_embed is now (1, 768, 16, 16) after the scale factor
+        assert (w0, h0) == patch_pos_embed.shape[-2:]   # ? true as (w0, h0) is (16, 16) and patch_pos_embed.shape[-2:] is (16, 16)
+        patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)  # ? patch_pos_embed is (1, 16, 16, 768) after the permutation and (1, 256, 768) after the view
+        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)  # ? return is (1, 257, 768)
 
     def prepare_tokens_with_masks(self, x, masks=None):
-        B, nc, w, h = x.shape
-        x = self.patch_embed(x)
-        if masks is not None:
+        B, nc, w, h = x.shape     # ? x is after transformation so B is batch size, nc is number of channels, w and h are 224
+        x = self.patch_embed(x)   # ? x is (B, 256, 768) after patch_embed   
+        if masks is not None:   # ! ignore as masks none
             x = torch.where(masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x)
 
-        x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)
-        x = x + self.interpolate_pos_encoding(x, w, h)
+        x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)  # ? x is now b hw+1 c   x.shape[0] is batch size so x is (B, 257, 768)
+        x = x + self.interpolate_pos_encoding(x, w, h)  # ? (B, 257, 768) + (1, 257, 768) = (B, 257, 768)
+
 
         if self.register_tokens is not None:
             x = torch.cat(
@@ -251,16 +252,16 @@ class DinoVisionTransformer(nn.Module):
             )
         return output
 
-    def forward_features(self, x, masks=None):
-        if isinstance(x, list):
+    def forward_features(self, x, masks=None):  # ! masks=None   x is the image
+        if isinstance(x, list):     # ToDo   x is generally not a list but need to investigate
             return self.forward_features_list(x, masks)
 
-        x = self.prepare_tokens_with_masks(x, masks)
+        x = self.prepare_tokens_with_masks(x, masks)  # ? x is (B, 257, 768)
 
         for blk in self.blocks:
-            x = blk(x)
+            x = blk(x)              # ? done
 
-        x_norm = self.norm(x)
+        x_norm = self.norm(x)       # ? understood
         return {
             "x_norm_clstoken": x_norm[:, 0],
             "x_norm_regtokens": x_norm[:, 1 : self.num_register_tokens + 1],
@@ -321,12 +322,12 @@ class DinoVisionTransformer(nn.Module):
             return tuple(zip(outputs, class_tokens))
         return tuple(outputs)
 
-    def forward(self, *args, is_training=False, **kwargs):
+    def forward(self, *args, is_training=False, **kwargs): # ! is_training=False and x (the image) is passed thru args
         ret = self.forward_features(*args, **kwargs)
-        if is_training:
+        if is_training: 
             return ret
         else:
-            return self.head(ret["x_norm_clstoken"])
+            return self.head(ret["x_norm_clstoken"]) # ! choose this
 
 
 def init_weights_vit_timm(module: nn.Module, name: str = ""):
