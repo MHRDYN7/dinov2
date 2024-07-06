@@ -1,14 +1,15 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
 #
-# This source code is licensed under the license found in the
-# LICENSE file in the root directory of this source tree.
+# This source code is licensed under the Apache License, Version 2.0
+# found in the LICENSE file in the root directory of this source tree.
 
 # References:
 #   https://github.com/facebookresearch/dino/blob/master/vision_transformer.py
 #   https://github.com/rwightman/pytorch-image-models/tree/master/timm/models/vision_transformer.py
 
 import logging
+import os
+import warnings
 
 from torch import Tensor
 from torch import nn
@@ -17,13 +18,19 @@ from torch import nn
 logger = logging.getLogger("dinov2")
 
 
+XFORMERS_ENABLED = os.environ.get("XFORMERS_DISABLED") is None
 try:
-    from xformers.ops import memory_efficient_attention, unbind, fmha
+    if XFORMERS_ENABLED:
+        from xformers.ops import memory_efficient_attention, unbind
 
-    XFORMERS_AVAILABLE = True
+        XFORMERS_AVAILABLE = True
+        warnings.warn("xFormers is available (Attention)")
+    else:
+        warnings.warn("xFormers is disabled (Attention)")
+        raise ImportError
 except ImportError:
-    logger.warning("xFormers not available")
     XFORMERS_AVAILABLE = False
+    warnings.warn("xFormers is not available (Attention)")
 
 
 class Attention(nn.Module):
@@ -65,7 +72,8 @@ class Attention(nn.Module):
 class MemEffAttention(Attention):
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
         if not XFORMERS_AVAILABLE:
-            assert attn_bias is None, "xFormers is required for nested tensors usage"
+            if attn_bias is not None:
+                raise AssertionError("xFormers is required for using nested tensors")
             return super().forward(x)
 
         B, N, C = x.shape
