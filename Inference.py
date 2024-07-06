@@ -3,15 +3,14 @@ import torch
 from PIL import Image
 import requests
 from torchvision import transforms 
-model = vit_base(img_size = 518, patch_size = 14, init_values = 1.0, block_chunks = 0)
+model = vit_base(img_size = 518, patch_size = 14, init_values = 1.0, block_chunks = 0, num_register_tokens=4)
 
 #for name, param in model.named_parameters():
 #    print(name, param.shape)
 
-state_dict = torch.hub.load_state_dict_from_url(url='https://dl.fbaipublicfiles.com/dinov2/dinov2_vitb14/dinov2_vitb14_pretrain.pth', 
-                                                map_location='cpu')
+hub_model = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14_reg')
 
-model.load_state_dict(state_dict)
+model.load_state_dict(hub_model.state_dict())
 
 # Load Image
 url = 'http://images.cocodataset.org/val2017/000000039769.jpg'
